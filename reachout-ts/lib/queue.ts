@@ -1,7 +1,8 @@
 import { and, asc, eq, isNull, lt, or, sql } from 'drizzle-orm';
-import { jobs } from './db/schema';
+import { failedJobs, jobs } from './db/schema';
 import { db } from './db';
 import { ts } from './config';
+import { randomUUID } from 'node:crypto';
 
 export type JobType = 'run_profile_agent' | 'draft_lead_email' | 'send_draft';
 
@@ -48,6 +49,12 @@ export async function workOnce(): Promise<boolean> {
     db().delete(jobs).where(eq(jobs.id, job.id)).run();
   } catch (e) {
     if (job.attempts + 1 >= 3) {
+      // Move to dead letters — same visibility Laravel's failed_jobs gives.
+      db().insert(failedJobs).values({
+        uuid: randomUUID(), connection: 'database', queue: job.queue,
+        payload: JSON.stringify({ type: job.type, payload: job.payload }),
+        exception: (e as Error).message.slice(0, 2000), failedAt: ts(),
+      }).run();
       db().delete(jobs).where(eq(jobs.id, job.id)).run();
       console.error(`[jobs] ${job.type}#${job.id} failed permanently:`, (e as Error).message);
     } else {

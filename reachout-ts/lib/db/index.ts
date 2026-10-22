@@ -147,14 +147,17 @@ CREATE TABLE IF NOT EXISTS discovery_cache (
   created_at TEXT, updated_at TEXT
 );
 CREATE INDEX IF NOT EXISTS discovery_cache_expires_at_index ON discovery_cache(expires_at);
-CREATE TABLE IF NOT EXISTS jobs (
+-- TS-owned queue. Deliberately not Laravel jobs/failed_jobs tables:
+-- different shape, and sharing would let each worker claim the other's
+-- payloads and crash on foreign formats.
+CREATE TABLE IF NOT EXISTS reachout_jobs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   queue TEXT NOT NULL DEFAULT 'default', type TEXT NOT NULL,
   payload TEXT NOT NULL, run_at TEXT NOT NULL,
   attempts INTEGER NOT NULL DEFAULT 0, reserved_at TEXT, created_at TEXT
 );
-CREATE INDEX IF NOT EXISTS jobs_due_index ON jobs(run_at, reserved_at);
-CREATE TABLE IF NOT EXISTS failed_jobs (
+CREATE INDEX IF NOT EXISTS reachout_jobs_due_index ON reachout_jobs(run_at, reserved_at);
+CREATE TABLE IF NOT EXISTS reachout_failed_jobs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   uuid TEXT NOT NULL UNIQUE, connection TEXT NOT NULL, queue TEXT NOT NULL,
   payload TEXT NOT NULL, exception TEXT NOT NULL, failed_at TEXT NOT NULL

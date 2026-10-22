@@ -188,8 +188,13 @@ export const discoveryCache = sqliteTable('discovery_cache', {
   updatedAt: text('updated_at'),
 }, (t) => [index('discovery_cache_expires_at_index').on(t.expiresAt)]);
 
-/** Our own lightweight queue — replaces Laravel's jobs table. */
-export const jobs = sqliteTable('jobs', {
+/**
+ * Our own lightweight queue — deliberately NOT Laravel's `jobs` table:
+ * that table has a different shape (payload blob + available_at epoch)
+ * and sharing it would let each app's worker claim the other's payloads
+ * and crash on foreign formats. TS-owned table name is reachout_jobs.
+ */
+export const jobs = sqliteTable('reachout_jobs', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   queue: text('queue').notNull().default('default'),
   type: text('type').notNull(), // run_profile_agent|draft_lead_email|send_draft|heartbeat
@@ -200,7 +205,9 @@ export const jobs = sqliteTable('jobs', {
   createdAt: text('created_at'),
 });
 
-export const failedJobs = sqliteTable('failed_jobs', {
+/** TS-side dead letters — kept out of Laravel's failed_jobs so its
+ *  queue:failed/queue:retry tooling never sees non-PHP payloads. */
+export const failedJobs = sqliteTable('reachout_failed_jobs', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   uuid: text('uuid').notNull().unique(),
   connection: text('connection').notNull(),
