@@ -13,7 +13,8 @@ import { Setting } from '../settings';
 export const SendPolicy = {
   withinWindow(now = new Date()): boolean {
     const t = manila(now);
-    return t.weekday < 5 && t.hour >= config.send.windowStart && t.hour < config.send.windowEnd;
+    return t.weekday >= 1 && t.weekday <= 5
+      && t.hour >= config.send.windowStart && t.hour < config.send.windowEnd;
   },
 
   /** Next moment when the send window opens (Asia/Manila wall time → Date). */
@@ -21,12 +22,13 @@ export const SendPolicy = {
     const { hour, minute } = { hour: config.send.windowStart, minute: 0 };
     const t = manila(now);
     const candidate = atManila(t.y, t.m, t.d, hour, minute);
-    if (t.weekday < 5 && now < candidate) return candidate;
+    if (t.weekday >= 1 && t.weekday <= 5 && now < candidate) return candidate;
 
     let y = t.y, m = t.m, d = t.d + 1;
     for (let i = 0; i < 9; i++) {
       const c = atManila(y, m, d, hour, minute);
-      if (manila(c).weekday < 5) return c;
+      const w = manila(c).weekday;
+      if (w >= 1 && w <= 5) return c;
       const next = new Date(Date.UTC(y, m - 1, d + 1));
       y = next.getUTCFullYear(); m = next.getUTCMonth() + 1; d = next.getUTCDate();
     }

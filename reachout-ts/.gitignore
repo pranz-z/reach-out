@@ -5,4 +5,5 @@ out/
 .env
 .env.local
 .env.*.local
+storage/
 .DS_Store
