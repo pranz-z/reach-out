@@ -166,6 +166,15 @@ export const config = {
   },
 
   sessionSecret: str('SESSION_SECRET', ''),
+
+  // Data-retention windows for `reachout prune` (mirrors reachout.privacy).
+  privacy: {
+    snippetDays: int('RETENTION_SNIPPET_DAYS', 90),
+    deadLeadDays: int('RETENTION_DEAD_LEAD_DAYS', 180),
+  },
+
+  // `reachout backup` — dated SQLite copies kept under storage/backups.
+  backup: { keep: int('BACKUP_KEEP', 14) },
 };
 
 /** Asia/Manila "now" — the app's business timezone (UTC+8, no DST). */

@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull, lt, or, sql } from 'drizzle-orm';
+import { and, asc, eq, isNull, lt, lte, or, sql } from 'drizzle-orm';
 import { failedJobs, jobs } from './db/schema';
 import { db } from './db';
 import { ts } from './config';
@@ -32,12 +32,19 @@ export async function workOnce(): Promise<boolean> {
   // A job reserved >10min ago is considered crashed — reclaimable.
   const stale = new Date(Date.now() - 10 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' ');
   const job = db().select().from(jobs).where(
-    and(lt(jobs.runAt, now), or(isNull(jobs.reservedAt), lt(jobs.reservedAt, stale))),
+    // <= like Laravel's available_at — runAt has second resolution, so
+    // a job enqueued this second must be claimable immediately.
+    and(lte(jobs.runAt, now), or(isNull(jobs.reservedAt), lt(jobs.reservedAt, stale))),
   ).orderBy(asc(jobs.id)).limit(1).get();
   if (!job) return false;
 
+  // Compare-and-swap on the reserved_at we read — another worker racing
+  // us either sees our stamp or fails this update.
+  const cas = job.reservedAt === null
+    ? isNull(jobs.reservedAt)
+    : eq(jobs.reservedAt, job.reservedAt);
   db().update(jobs).set({ reservedAt: now, attempts: job.attempts + 1 })
-    .where(and(eq(jobs.id, job.id), sql`reserved_at <=> ${job.reservedAt}`)).run();
+    .where(and(eq(jobs.id, job.id), cas)).run();
   // If another worker won the race, our update hit 0 rows — recheck.
   const claimed = db().select().from(jobs).where(eq(jobs.id, job.id)).get();
   if (!claimed || claimed.reservedAt !== now || claimed.attempts !== job.attempts + 1) return false;
